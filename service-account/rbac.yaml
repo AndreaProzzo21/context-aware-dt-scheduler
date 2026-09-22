@@ -10,23 +10,30 @@ kind: ClusterRole
 metadata:
   name: iot-twin-scheduler
 rules:
+  # Base + Watchdog: Leggere ed ELIMINARE i pod (RCA Trigger)
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "delete"]
+    
   # Eseguire il binding pod -> nodo
   - apiGroups: [""]
     resources: ["pods/binding"]
     verbs: ["create"]
-  # Leggere stato e capacità allocabile dei nodi (get_available_nodes,
-  # get_node_capacity per il calcolo delle percentuali CPU/RAM)
+    
+  # Leggere stato e capacità allocabile dei nodi
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch"]
-  # NUOVO: uso CPU/RAM in tempo reale dei nodi via Metrics Server
-  # (resource awareness + fallback)
+    
+  # Resource awareness via Metrics Server
   - apiGroups: ["metrics.k8s.io"]
     resources: ["nodes"]
     verbs: ["get", "list"]
+    
+  # Eventi Kubernetes (utile per il tracking delle azioni del watchdog)
+  - apiGroups: ["events.k8s.io", ""]
+    resources: ["events"]
+    verbs: ["create", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -40,4 +47,3 @@ roleRef:
   kind: ClusterRole
   name: iot-twin-scheduler
   apiGroup: rbac.authorization.k8s.io
-  
