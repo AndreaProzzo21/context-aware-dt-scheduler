@@ -57,11 +57,25 @@ def get_prom_data(query, is_range=False, start=None, end=None, step=None):
         print(f"[-] Errore Prometheus: {e}")
         return []
 
+def get_raw_node(metric_dict):
+    """Estrae il nome grezzo da qualsiasi etichetta Prometheus usi."""
+    return metric_dict.get('kubernetes_node', metric_dict.get('node', metric_dict.get('instance', 'Unknown')))
+
 def clean_node_name(raw_name):
-    """Pulisce il nome del nodo."""
-    if not raw_name:
+    """Pulisce il nome del nodo e lo mappa nel formato accademico (Node A, B, C)."""
+    if not raw_name or raw_name == "Unknown":
         return "Unknown"
+    
     clean = raw_name.split(':')[0].replace('talos-tim-', '').capitalize()
+    
+    # Mappatura Worker -> Node per la Tesi
+    if clean == "Worker-1":
+        return "Node A"
+    elif clean == "Worker-2":
+        return "Node B"
+    elif clean == "Worker-3":
+        return "Node C"
+        
     return clean
 
 # ===========================================================================
@@ -105,14 +119,13 @@ def plot_line_chart(results, ylabel, title, filename, multiplier=1.0, is_percent
     markers = ['o', 's', '^']
     colors = ['black', '#444444', '#777777']
     
-    results_sorted = sorted(results, key=lambda x: clean_node_name(x['metric'].get('kubernetes_node', x['metric'].get('node', ''))))
+    results_sorted = sorted(results, key=lambda x: clean_node_name(get_raw_node(x['metric'])))
 
     plotted_lines = 0
     for idx, res in enumerate(results_sorted):
-        raw_node = res['metric'].get('kubernetes_node', res['metric'].get('node', res['metric'].get('instance', '')))
-        nodo = clean_node_name(raw_node)
-        
+        nodo = clean_node_name(get_raw_node(res['metric']))
         raw_vals = str(res['metric'].values()).lower()
+        
         if nodo == "Unknown" or nodo == "Localhost" or "192.168.0.61" in raw_vals or "controlplane" in nodo.lower(): 
             continue
             
@@ -201,14 +214,17 @@ if __name__ == "__main__":
     inst_lat = get_prom_data(query_lat)
     if inst_lat:
         nodi, latenze = [], []
-        for res in sorted(inst_lat, key=lambda x: clean_node_name(x['metric'].get('kubernetes_node', ''))):
+        for res in sorted(inst_lat, key=lambda x: clean_node_name(get_raw_node(x['metric']))):
             raw_vals = str(res['metric'].values()).lower()
-            nodo_clean = clean_node_name(res['metric'].get('kubernetes_node', ''))
-            if "192.168.0.61" in raw_vals or "controlplane" in nodo_clean.lower() or "localhost" in nodo_clean.lower():
+            nodo_clean = clean_node_name(get_raw_node(res['metric']))
+            
+            if nodo_clean == "Unknown" or "192.168.0.61" in raw_vals or "controlplane" in nodo_clean.lower() or "localhost" in nodo_clean.lower():
                 continue
+                
             nodi.append(nodo_clean)
             latenze.append(float(res['value'][1]) * 1000)
             known_workers.add(nodo_clean)
+            
         plot_bar_chart(nodi, latenze, 'Latency (ms)', f'Instant OT Network Latency', 'fig_01_latency_bar.png')
 
     # 2. LATENZA TEMPORALE
@@ -241,9 +257,10 @@ if __name__ == "__main__":
         # Assicuriamoci di includere tutti i worker noti nei dizionari finali
         base_counts = {w: 0 for w in known_workers}
         custom_counts = {w: 0 for w in known_workers}
+        
         if not base_counts:
-            base_counts = {"Worker-1": 0, "Worker-2": 0, "Worker-3": 0}
-            custom_counts = {"Worker-1": 0, "Worker-2": 0, "Worker-3": 0}
+            base_counts = {"Node A": 0, "Node B": 0, "Node C": 0}
+            custom_counts = {"Node A": 0, "Node B": 0, "Node C": 0}
 
         base_found = 0
         custom_found = 0
