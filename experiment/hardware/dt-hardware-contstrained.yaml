@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-hardware-custom
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twin-industrial-vision
+      experiment: hardware-filtering-custom
+  template:
+    metadata:
+      labels:
+        app: twin-industrial-vision
+        experiment: hardware-filtering-custom
+      annotations:
+        iot-scheduler/hw-required: "gpu-edge,amd64"
+        iot-scheduler/strategy: "minimize-latency"
+        iot-scheduler/strategy-target: "192.168.0.61"
+    spec:
+      schedulerName: iot-twin-scheduler # 1. Il tuo Custom Scheduler
+      containers:
+      - name: dt-vision-engine
+        image: aprozzo/edge-dt-mqtt:v1
+        imagePullPolicy: Always
+        env:
+        - name: MQTT_BROKER_IP
+          value: "192.168.0.61"
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-hardware-default
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twin-industrial-vision
+      experiment: hardware-filtering-default
+  template:
+    metadata:
+      labels:
+        app: twin-industrial-vision
+        experiment: hardware-filtering-default
+    spec:
+      # NESSUN schedulerName -> Usa il default-scheduler di Kubernetes
+      containers:
+      - name: dt-vision-engine
+        image: aprozzo/edge-dt-mqtt:v1
+        imagePullPolicy: Always
+        env:
+        - name: MQTT_BROKER_IP
+          value: "192.168.0.61"
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"

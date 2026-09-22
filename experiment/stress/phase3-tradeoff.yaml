@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-tradeoff-custom
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      experiment: phase3-tradeoff
+  template:
+    metadata:
+      labels:
+        experiment: phase3-tradeoff
+      annotations:
+        iot-scheduler/strategy: "minimize-latency"
+        iot-scheduler/strategy-target: "192.168.0.61"
+    spec:
+      schedulerName: iot-twin-scheduler # Il tuo scheduler che salva la situazione
+      containers:
+      - name: dt-vision-engine
+        image: aprozzo/edge-dt-mqtt:v1
+        env:
+        - name: MQTT_BROKER_IP
+          value: "192.168.0.61"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-tradeoff-default
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      experiment: phase3-tradeoff-default
+  template:
+    metadata:
+      labels:
+        experiment: phase3-tradeoff-default
+      annotations:
+        iot-scheduler/strategy: "minimize-latency"
+        iot-scheduler/strategy-target: "192.168.0.61"
+    spec:
+      # Niente custom scheduler, usa quello di default
+      containers:
+      - name: dt-vision-engine
+        image: aprozzo/edge-dt-mqtt:v1
+        env:
+        - name: MQTT_BROKER_IP
+          value: "192.168.0.61"

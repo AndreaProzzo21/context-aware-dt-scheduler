@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-stresser
+  namespace: default
+spec:
+  nodeName: talos-tim-worker-1 # Forza il pod ad andare sul Nodo A
+  containers:
+  - name: stress
+    image: polinux/stress
+    command: ["stress"]
+    args: ["--cpu", "4", "--timeout", "600"] # Stressa 4 core al 100% per 10 minuti

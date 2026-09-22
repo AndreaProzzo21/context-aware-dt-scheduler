@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-dr-test
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      experiment: phase4-dr
+  template:
+    metadata:
+      labels:
+        experiment: phase4-dr
+      annotations:
+        # Chiediamo allo scheduler di trovare il nodo migliore
+        iot-scheduler/strategy: "minimize-latency"
+        iot-scheduler/strategy-target: "192.168.0.61"
+    spec:
+      schedulerName: iot-twin-scheduler
+      containers:
+      - name: dt-heavy-analytics
+        image: polinux/stress
+        command: ["stress"]
+        args: ["--cpu", "2"] # Carico pesante e visibilissimo sui grafici
+        resources:
+          requests:
+            cpu: "100m" # Richiesta bassa per aggirare i limiti fittizi, ma consumo reale alto

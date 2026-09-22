@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-hw-dr-default
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hw-test-def
+  template:
+    metadata:
+      labels:
+        app: hw-test-def
+    spec:
+      containers:
+      - name: app
+        image: alpine
+        command: ["sleep", "3600"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dt-hw-dr-custom
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hw-test-cust
+  template:
+    metadata:
+      labels:
+        app: hw-test-cust
+      annotations:
+        iot-scheduler/hw-required: "gpu-edge,amd64"
+    spec:
+      schedulerName: iot-twin-scheduler
+      containers:
+      - name: app
+        image: alpine
+        command: ["sleep", "3600"]
