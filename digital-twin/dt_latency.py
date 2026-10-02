@@ -2,6 +2,7 @@ import os
 import time
 import json
 import threading
+import random
 import paho.mqtt.client as mqtt
 from prometheus_client import start_http_server, Gauge
 
@@ -11,6 +12,9 @@ NAMESPACE = os.getenv("NAMESPACE", "default")
 MQTT_BROKER = os.getenv("MQTT_BROKER", "mosquitto-broker.default.svc.cluster.local")
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "machine/01/data")
 
+# Parametro configurabile: dopo quanti secondi inizia il degrado (es. 300 = 5 min)
+DEGRADATION_START_SEC = float(os.getenv("DEGRADATION_START_SEC", "300.0"))
+
 # ---------------------------------------------------------
 # SETUP PROMETHEUS METRICS
 # ---------------------------------------------------------
@@ -19,9 +23,8 @@ pt_dt_delay_gauge = Gauge('pt_dt_delay', 'Physical to DT delay in ms', LABELS)
 dt_comp_delay_gauge = Gauge('dt_comp_delay', 'DT computation delay in ms', LABELS)
 entanglement_gauge = Gauge('entanglement', 'Total entanglement delay in ms', LABELS)
 
-# Variabili globali per calibrazione e test
 clock_offset = None
-APP_START_TIME = time.time() # Registriamo quando è nato il pod
+APP_START_TIME = time.time()
 
 def compute_active_load():
     """Simula il processamento bloccando il thread per circa 100ms."""
@@ -55,13 +58,18 @@ def process_digital_twin_task(payload, recv_time):
         comp_delay = compute_active_load()
         
         # -------------------------------------------------------------
-        # CHAOS TESTING INJECTION (Per la Tesi)
-        # Dopo 45 secondi di vita del pod, simuliamo un crollo della rete
-        # aggiungendo 400ms di ritardo artificiale.
+        # CHAOS TESTING INJECTION REALISTICO
+        # Dopo DEGRADATION_START_SEC aggiunge latenza variabile + spike
         # -------------------------------------------------------------
         uptime = time.time() - APP_START_TIME
-        if uptime > 45.0:
-            pt_dt_delay += 400.0  # Iniezione degrado di rete!
+        if uptime > DEGRADATION_START_SEC:
+            base_degradation = 350.0  # Latenza base degradata
+            jitter = random.uniform(-40.0, 60.0)  # Fluttuazione standard
+            
+            # 20% di probabilità di avere uno spike elevato
+            spike = random.uniform(100.0, 200.0) if random.random() < 0.2 else 0.0
+            
+            pt_dt_delay += (base_degradation + jitter + spike)
         
         # 3. Entanglement
         entanglement = pt_dt_delay + comp_delay
@@ -71,7 +79,7 @@ def process_digital_twin_task(payload, recv_time):
         dt_comp_delay_gauge.labels(pod=POD_NAME, namespace=NAMESPACE).set(comp_delay)
         entanglement_gauge.labels(pod=POD_NAME, namespace=NAMESPACE).set(entanglement)
         
-        if uptime > 45.0:
+        if uptime > DEGRADATION_START_SEC:
             print(f"[{POD_NAME}] ⚠️ DEGRADO SIMULATO ATTIVO! PT_DT: {pt_dt_delay:.1f}ms | Comp: {comp_delay:.1f}ms | Ent: {entanglement:.1f}ms", flush=True)
         else:
             print(f"[{POD_NAME}] Msg elaborato. PT_DT: {pt_dt_delay:.1f}ms | Comp: {comp_delay:.1f}ms | Entanglement: {entanglement:.1f}ms", flush=True)
@@ -89,6 +97,7 @@ def on_message(client, userdata, msg):
 
 def main():
     print(f"Starting Digital Twin [{POD_NAME}] in namespace [{NAMESPACE}]", flush=True)
+    print(f"Degradation timer set to start after {DEGRADATION_START_SEC} seconds.", flush=True)
     start_http_server(8000) 
     
     client = mqtt.Client()

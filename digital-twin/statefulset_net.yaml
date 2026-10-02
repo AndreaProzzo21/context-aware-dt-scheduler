@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: twin-machine-01
+  name: twin-machine-custom
   namespace: default
 spec:
-  serviceName: "twin-machine-01"
+  serviceName: "twin-machine-custom"
   replicas: 1
   selector:
     matchLabels:
-      app: digital-twin
+      app: digital-twin-custom
   template:
     metadata:
       labels:
-        app: digital-twin
+        app: digital-twin-custom
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -24,12 +24,56 @@ spec:
       schedulerName: iot-twin-scheduler
       containers:
       - name: twin
-        image: aprozzo/dt-entanglement:v2
+        image: aprozzo/dt-entanglement:v3
         imagePullPolicy: Always
         ports:
         - name: metrics
           containerPort: 8000
         env:
+        - name: DEGRADATION_START_SEC
+          value: "300.0"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MQTT_BROKER
+          value: "mosquitto-broker.default.svc.cluster.local"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: twin-machine-default
+  namespace: default
+spec:
+  serviceName: "twin-machine-default"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: digital-twin-default
+  template:
+    metadata:
+      labels:
+        app: digital-twin-default
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Nessun schedulerName specificato -> usa il kube-scheduler di default
+      containers:
+      - name: twin
+        image: aprozzo/dt-entanglement:v3
+        imagePullPolicy: Always
+        ports:
+        - name: metrics
+          containerPort: 8000
+        env:
+        - name: DEGRADATION_START_SEC
+          value: "300.0"
         - name: POD_NAME
           valueFrom:
             fieldRef:

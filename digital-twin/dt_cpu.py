@@ -60,7 +60,7 @@ def process_digital_twin_task(payload, recv_time):
         # simulando un nodo con la CPU saturata.
         # -------------------------------------------------------------
         uptime = time.time() - APP_START_TIME
-        if uptime > 45.0:
+        if uptime > 100.0:
             target_compute_time = 0.500  # 500 ms (Degrado!)
         else:
             target_compute_time = 0.100  # 100 ms (Normale)

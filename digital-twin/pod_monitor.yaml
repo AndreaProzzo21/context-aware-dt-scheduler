@@ -5,9 +5,11 @@ metadata:
   namespace: default
 spec:
   selector:
-    matchLabels:
-      app: digital-twin # Deve corrispondere alla label del tuo Twin
+    matchExpressions:
+    - key: app
+      operator: In
+      values: ["digital-twin-custom", "digital-twin-default"]
   podMetricsEndpoints:
-  - port: metrics # Il nome della porta che abbiamo appena aggiunto
+  - port: metrics
     path: /metrics
-    interval: 5s # Prometheus leggerà i dati ogni 5 secondi
+    interval: 5s
