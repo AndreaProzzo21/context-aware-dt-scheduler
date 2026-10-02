@@ -1,0 +1,21 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: edge-network-degradation
+  namespace: default
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - default
+      - monitoring
+    nodeSelectors:
+      "kubernetes.io/hostname": "talos-tim-worker-2"
+  delay:
+    latency: "400ms"
+    correlation: "0"
+    jitter: "40ms"
+  direction: to
+  externalTargets:
+    - "192.168.0.61"
