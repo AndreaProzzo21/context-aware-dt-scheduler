@@ -3,15 +3,17 @@ import json
 import os
 import paho.mqtt.client as mqtt
 
-# Di default si connette al localhost (dovrai fare port-forward da k8s al tuo pc)
+# Configurazioni tramite variabili d'ambiente
 MQTT_BROKER = os.getenv("MQTT_BROKER", "127.0.0.1")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))  # <--- Aggiunta variabile per la porta
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "machine/01/data")
 
 def main():
     client = mqtt.Client()
     try:
-        client.connect(MQTT_BROKER, 1883, 60)
-        print(f"Simulatore fisico connesso a {MQTT_BROKER}")
+        # Usa la porta dinamica per la connessione
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        print(f"Simulatore fisico connesso a {MQTT_BROKER}:{MQTT_PORT}")
     except Exception as e:
         print(f"Errore connessione broker: {e}")
         return
