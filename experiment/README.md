@@ -74,3 +74,5 @@ Prima di procedere con l'esecuzione delle singole fasi, assicurarsi che lo **sch
      kubectl logs -f deploy/iot-twin-scheduler -n kube-system
      ```
 ---
+
+Nella cartella graphs/ sono presenti vari script Python utilizzati per ottenere grafici base dagli esperimenti (distribuzione pod, cpu dei nodi, latenza tra nodi e broker (Prometheus)). Possono essere lanciati cambiando via via il CMD nel Dockerfile e lanciando il container. 
