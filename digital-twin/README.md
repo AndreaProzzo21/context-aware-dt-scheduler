@@ -1,14 +1,16 @@
-# README - Digital Twin Workloads & Advanced Testing
+# README - Digital Twin Workloads & Advanced Chaos Testing
+
+## Panoramica e Contesto Architetturale
 
 Questa cartella contiene l'implementazione software e i manifest Kubernetes dei **Digital Twin (DT)** impiegati nelle fasi avanzate della sperimentazione della tesi.
 
-A differenza della fase preliminare (basata su semplici Deployment stateless), i Digital Twin sono qui modellati come istanze persistenti e stateful. Ciascun DT si connette a un broker MQTT centralizzato per ricevere i flussi di telemetria in tempo reale dalla controparte fisica (`physical-twin/`), elabora i dati localmente calcolando l'indice di sincronizzazione cyber-fisica (*Entanglement*), ed espone metriche granulari per consentire al **Custom Scheduler** di intercettare i degradi prestazionali e triggerare automaticamente le migrazioni (rescheduling) dei carichi.
+A differenza della fase preliminare (basata su semplici Deployment stateless), i Digital Twin sono qui modellati come istanze persistenti e stateful. Ciascun DT si connette a un broker MQTT centralizzato per ricevere i flussi di telemetria in tempo reale dalla controparte fisica (`physical-twin/`), elabora i dati localmente calcolando l'indice di sincronizzazione cyber-fisica (*Entanglement*), ed espone metriche granulari per consentire al **Custom Scheduler** di intercettare i degradi prestazionali e **triggerare automaticamente le migrazioni (rescheduling)** dei carichi.
 
 ---
 
 ## Tipologie di Digital Twin e Chaos Testing
 
-Il codice sorgente prevede tre varianti di DT, progettate per replicare diverse condizioni operative e stress test controllati:
+Il codice sorgente prevede tre varianti specializzate di DT, progettate per replicare diverse condizioni operative e stress test controllati:
 
 1. **`dt_app.py` (Versione Standard / Baseline):**
 Esegue l'elaborazione dei pacchetti telemetrici con un carico computazionale costante e nominale. Viene utilizzato come riferimento stabile per valutare le prestazioni in condizioni ottimali.
@@ -25,11 +27,7 @@ Ogni pod Digital Twin avvia un server HTTP integrato sulla porta **`8000`**, sfr
 
 * **`pt_dt_delay` (Physical-to-Digital Twin Delay):** Rappresenta il ritardo di rete e trasmissione dei dati, calcolato compensando dinamicamente l'offset iniziale del clock tra la sorgente fisica e il pod ricevente.
 * **`dt_comp_delay` (Computation Delay):** Quantifica il tempo effettivo impiegato dal thread interno del DT per processare il payload e completare il ciclo di calcolo attivo (`compute_active_load`).
-* **`entanglement` (Overall Digital Twin Entanglement - ODTE):** L'indice sintetico complessivo, calcolato come la somma algebrica delle componenti di rete e computazionali:
-
-$$\text{Entanglement} = \text{pt\_dt\_delay} + \text{dt\_comp\_delay}$$
-
-
+* **`entanglement` (Overall Digital Twin Entanglement - ODTE):** L'indice sintetico complessivo, calcolato come la somma algebrica delle componenti di rete e computazionali.
 
 ---
 
@@ -39,7 +37,7 @@ Per garantire che il middleware di scheduling possa gestire correttamente il cic
 
 Le decisioni dello scheduler sono guidate dalle **annotazioni dichiarative** inserite nel manifest, le quali definiscono la strategia di posizionamento, la soglia critica di tolleranza all'entanglement e i requisiti hardware stringenti.
 
-Di seguito viene fornito il manifest di riferimento completo, configurato per prelevare direttamente l'immagine container ufficiale da Docker Hub (`aprozzo/dt-entanglement:v3`):
+Di seguito viene fornito il manifest di riferimento completo, configurato per prelevare direttamente l'immagine container ufficiale dal tuo Docker Hub (`aprozzo/dt-entanglement:v3`):
 
 ```yaml
 apiVersion: apps/v1
@@ -97,17 +95,24 @@ spec:
 
 ### 1. Prerequisiti d'Ambiente
 
-* Un cluster Kubernetes attivo con il Custom Scheduler configurato e in esecuzione (vedi cartella `deployment/`).
-* Un'istanza di Prometheus (o Prometheus Operator) configurata nel cluster per raccogliere le metriche tramite i PodMonitor dedicati.
-
-
+* Un cluster Kubernetes attivo con il Custom Scheduler configurato e in esecuzione (vedi cartella `deploy/`).
+* Un'istanza di Prometheus (o Prometheus Operator) configurata nel cluster.
 * Un broker MQTT (es. Mosquitto) raggiungibile internamente al cluster.
 
-### 2. Recupero Automatico dell'Immagine
+### 2. Configurazione del Monitoraggio (`pod_monitor.yaml`)
 
-Le immagini dei Digital Twin sono già compilate, versionate e ospitate sul repository Docker Hub (`aprozzo/dt-entanglement:v3`). Il cluster Kubernetes provvederà a scaricarle autonomamente grazie alla policy `imagePullPolicy: Always`, azzerando la necessità di build locali.
+Per permettere a Prometheus di scoprire automaticamente i pod dei Digital Twin e raccogliere le metriche di entanglement (`pt_dt_delay`, `dt_comp_delay`, `entanglement`), applica la risorsa di monitoraggio nel cluster:
 
-### 3. Esecuzione dei Test con Chaos Injection
+```bash
+kubectl apply -f pod_monitor.yaml
+
+```
+
+### 3. Recupero Automatico dell'Immagine
+
+Le immagini dei Digital Twin sono già compilate, versionate e ospitate sul tuo repository Docker Hub (`aprozzo/dt-entanglement:v3`). Il cluster Kubernetes provvederà a scaricarle autonomamente grazie alla policy `imagePullPolicy: Always`, azzerando la necessità di build locali.
+
+### 4. Esecuzione dei Test con Chaos Injection
 
 A seconda dello scenario di test che si intende replicare (degrado computazionale o di rete), applicare il rispettivo manifest StatefulSet:
 
@@ -126,9 +131,9 @@ kubectl apply -f statefulset_net.yaml
 
 
 
-### 4. Monitoraggio del comportamento dello Scheduler
+### 5. Monitoraggio del comportamento dello Scheduler
 
-1. **Verifica dello scraping delle metriche:** Controllare l'interfaccia di Prometheus o interrogare direttamente l'endpoint del pod per verificare che `pt_dt_delay`, `dt_comp_delay` ed `entanglement` vengano aggiornati in tempo reale.
+1. **Verifica dello scraping:** Controlla l'interfaccia di Prometheus per accertarti che le metriche dei DT vengano raccolte correttamente.
 
 
-2. **Osservazione delle migrazioni dinamiche:** Monitorando i log del custom scheduler o lo stato dei pod (`kubectl get pods -o wide`), è possibile osservare come, al superamento della soglia dichiarata nelle annotazioni (es. `iot-scheduler/entanglement-threshold-ms: "450"`), lo scheduler intercetti il degrado e avvii automaticamente la migrazione del StatefulSet verso un nodo con risorse più idonee.
+2. **Osservazione delle migrazioni dinamiche:** Monitorando i log del custom scheduler o lo stato dei pod (`kubectl get pods -o wide`), noterai che, al superamento della soglia dichiarata nelle annotazioni (es. `iot-scheduler/entanglement-threshold-ms: "450"`), lo scheduler intercetterà il degrado attivando automaticamente la migrazione del StatefulSet verso un nodo più idoneo.
