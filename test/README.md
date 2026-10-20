@@ -1,0 +1,1 @@
+Test base della primordiale versione dello scheduler, usati per verificare i meccanismi di scheduling basilari nella prima iterazione dello scheduler.
