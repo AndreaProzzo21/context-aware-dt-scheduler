@@ -22,7 +22,7 @@ I **vincoli hardware** richiesti dal pod (per esempio una GPU specifica) sono ri
 ```mermaid
 flowchart LR
     PT["Gemello fisico"] -- "dati" --> DT["Digital Twin<br/>pod su Kubernetes"]
-    DT -- "pt_dt_delay, dt_comp_delay, entanglement" --> PROM[("Prometheus<br/>+ blackbox exporter")]
+    DT -- "entanglement" --> PROM[("Prometheus<br/>+ blackbox exporter")]
     MS["Metrics Server"] -- "CPU/RAM" --> SCH
     PROM -- "telemetria" --> SCH["iot-twin-scheduler<br/>piazzamento + watchdog"]
     SCH -- "bind / delete" --> DT
@@ -40,8 +40,8 @@ flowchart LR
 ├── digital-twin/         # Digital Twin di esempio
 ├── physical-twin/        # controparte fisica del twin
 ├── entanglement-plotter/ # visualizzazione dell'entanglement
-├── experiment/           # esperimenti e valutazione
-├── test/                 # test
+├── experiment/           # esperimenti vari
+├── test/                 # test primordiali in fase di sviluppo
 └── README.md
 ```
 
@@ -133,7 +133,7 @@ Per questo il manifest del twin deve:
 
 - usare `schedulerName: iot-twin-scheduler`;
 - essere una **StatefulSet** (il nome stabile del pod permette allo scheduler di riconoscere il pod ricreato dopo una migrazione);
-- avere la label `app` con uno dei valori elencati nel PodMonitor (`digital-twin-custom` o `digital-twin-default`);
+- avere la label `app` con uno dei valori elencati nel PodMonitor (`digital-twin-custom` o `digital-twin-default` ma puoi personalizzarli);
 - esporre le metriche su una porta chiamata `metrics`;
 - dichiarare, se servono, strategia, hardware richiesto e soglia di entanglement tramite annotation.
 
