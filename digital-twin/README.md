@@ -33,11 +33,11 @@ Ogni pod Digital Twin avvia un server HTTP integrato sulla porta **`8000`**, sfr
 
 ## Configurazione dei Digital Twin tramite StatefulSet e Annotazioni
 
-Per garantire che il middleware di scheduling possa gestire correttamente il ciclo di vita del Digital Twin (preservandone l'identità di rete e lo stato in caso di migrazione), l'utilizzo di un **StatefulSet** è un requisito obbligatorio.
+Per garantire che il middleware di scheduling possa gestire correttamente il ciclo di vita del Digital Twin (preservandone lo stato in caso di migrazione e rendendo possibile il retrieve dell'entanglement da Prometheus), l'utilizzo di un **StatefulSet** è un requisito obbligatorio.
 
 Le decisioni dello scheduler sono guidate dalle **annotazioni dichiarative** inserite nel manifest, le quali definiscono la strategia di posizionamento, la soglia critica di tolleranza all'entanglement e i requisiti hardware stringenti.
 
-Di seguito viene fornito il manifest di riferimento completo, configurato per prelevare direttamente l'immagine container ufficiale dal tuo Docker Hub (`aprozzo/dt-entanglement:v3`):
+Di seguito viene fornito il manifest di riferimento completo, configurato per prelevare direttamente l'immagine container ufficiale da Docker Hub (`aprozzo/dt-entanglement:v3`):
 
 ```yaml
 apiVersion: apps/v1
@@ -110,7 +110,7 @@ kubectl apply -f pod_monitor.yaml
 
 ### 3. Recupero Automatico dell'Immagine
 
-Le immagini dei Digital Twin sono già compilate, versionate e ospitate sul tuo repository Docker Hub (`aprozzo/dt-entanglement:v3`). Il cluster Kubernetes provvederà a scaricarle autonomamente grazie alla policy `imagePullPolicy: Always`, azzerando la necessità di build locali.
+Le immagini dei Digital Twin sono già compilate e ospitate sul repository Docker Hub (`aprozzo/dt-entanglement:v3`). Il cluster Kubernetes provvederà a scaricarle autonomamente grazie alla policy `imagePullPolicy: Always`, azzerando la necessità di build locali.
 
 ### 4. Esecuzione dei Test con Chaos Injection
 
@@ -134,6 +134,5 @@ kubectl apply -f statefulset_net.yaml
 ### 5. Monitoraggio del comportamento dello Scheduler
 
 1. **Verifica dello scraping:** Controlla l'interfaccia di Prometheus per accertarti che le metriche dei DT vengano raccolte correttamente.
-
 
 2. **Osservazione delle migrazioni dinamiche:** Monitorando i log del custom scheduler o lo stato dei pod (`kubectl get pods -o wide`), noterai che, al superamento della soglia dichiarata nelle annotazioni (es. `iot-scheduler/entanglement-threshold-ms: "450"`), lo scheduler intercetterà il degrado attivando automaticamente la migrazione del StatefulSet verso un nodo più idoneo.
