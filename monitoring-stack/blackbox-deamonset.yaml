@@ -1,0 +1,141 @@
+# Blackbox exporter per la latenza nodo -> target (strategia minimize-latency).
+#
+# Un pod per nodo (DaemonSet): ogni pod fa il ping dei target elencati nel
+# ServiceMonitor in fondo. Prometheus aggiunge a ogni serie:
+#   - kubernetes_node = nome del nodo da cui parte la sonda
+#   - instance        = IP del target sondato
+# così lo scheduler può chiedere "latenza verso 192.168.0.66, per nodo".
+#
+#   kubectl apply -f blackbox-daemonset.yaml
+---
+# 1. Configurazione del modulo ICMP (Ping)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-config
+  namespace: monitoring
+data:
+  blackbox.yml: |
+    modules:
+      icmp_ping:
+        prober: icmp
+        timeout: 3s
+        icmp:
+          preferred_ip_protocol: "ip4"
+
+---
+# 2. Il DaemonSet (un pod su ogni nodo)
+# Nota: senza toleration non parte sui nodi con taint NoSchedule (es. control-plane),
+# gli stessi che lo scheduler esclude dai candidati.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+spec:
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  template:
+    metadata:
+      labels:
+        app: blackbox-exporter
+    spec:
+      containers:
+      - name: blackbox-exporter
+        image: prom/blackbox-exporter:v0.24.0
+        args:
+        - "--config.file=/etc/blackbox_exporter/config.yml"
+        ports:
+        - containerPort: 9115
+          name: http
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 2
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          capabilities:
+            add: ["NET_RAW"] # FONDAMENTALE PER FARE PING
+        volumeMounts:
+        - name: config
+          mountPath: /etc/blackbox_exporter/config.yml
+          subPath: blackbox.yml
+      volumes:
+      - name: config
+        configMap:
+          name: blackbox-config
+
+---
+# 3. Il Servizio per raggruppare i pod
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox-exporter
+  namespace: monitoring
+  labels:
+    app: blackbox-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app: blackbox-exporter
+  ports:
+  - name: http
+    port: 9115
+    targetPort: http
+
+---
+# 4. ServiceMonitor per Prometheus Operator (Multi-Target)
+# Un blocco "- port: http ..." per ogni IP da sondare.
+# L'IP in "target" è lo stesso valore da usare nell'annotation
+# iot-scheduler/strategy-target dei pod.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: blackbox-exporter-ping
+  namespace: monitoring
+  labels:
+    release: kube-prom-stack # con i selector aperti nei values non è obbligatoria, ma è innocua
+spec:
+  selector:
+    matchLabels:
+      app: blackbox-exporter
+  endpoints:
+
+  # --- TARGET 1 ---
+  - port: http
+    path: /probe
+    interval: 10s
+    params:
+      module: [icmp_ping]
+      target: [192.168.0.66] # Primo macchinario
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: kubernetes_node
+    # SOVRASCRIVE LA LABEL 'instance' CON L'IP DEL TARGET
+    - sourceLabels: [__param_target]
+      targetLabel: instance
+
+  # --- TARGET 2 ---
+  - port: http
+    path: /probe
+    interval: 10s
+    params:
+      module: [icmp_ping]
+      target: [192.168.0.61] # Secondo macchinario/sensore
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: kubernetes_node
+    - sourceLabels: [__param_target]
+      targetLabel: instance
+
+  # Aggiungi altri blocchi "- port: http..." qui sotto se hai più di 2 target

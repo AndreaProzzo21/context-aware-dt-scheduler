@@ -1,0 +1,33 @@
+# PodMonitor per le metriche dei Digital Twin (entanglement, pt_dt_delay, dt_comp_delay).
+#
+# Perché il watchdog dello scheduler trovi le metriche, devono valere TUTTE queste condizioni:
+#   1. i pod dei twin hanno la label "app" con uno dei valori elencati sotto
+#      (nel template della StatefulSet: spec.template.metadata.labels);
+#   2. il container dei twin dichiara una porta con nome "metrics"
+#      (ports: - name: metrics, containerPort: <porta>);
+#   3. i pod stanno nello stesso namespace di questo PodMonitor (default),
+#      oppure si abilita namespaceSelector qui sotto;
+#   4. l'app dei twin NON esporta label proprie chiamate "pod" o "namespace"
+#      (altrimenti Prometheus le rinomina in exported_pod / exported_namespace
+#      e le query del watchdog non trovano nulla).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: digital-twin-monitor
+  namespace: default
+spec:
+  selector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values: ["digital-twin-custom", "digital-twin-default"]
+  # Se i twin stanno in uno o più namespace diversi da quello del PodMonitor,
+  # decommentare una delle due opzioni:
+  # namespaceSelector:
+  #   any: true                  # tutti i namespace
+  # namespaceSelector:
+  #   matchNames: ["twins"]      # solo questi namespace
+  podMetricsEndpoints:
+  - port: metrics
+    path: /metrics
+    interval: 5s

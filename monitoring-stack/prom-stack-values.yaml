@@ -1,0 +1,70 @@
+# Values per kube-prometheus-stack (release: kube-prom-stack, namespace: monitoring)
+#
+#   helm install kube-prom-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f prom-stack-values.yaml
+#
+# Installa: Prometheus Operator, Prometheus, node exporter, kube-state-metrics, Grafana.
+# Il Service "prometheus-operated" (porta 9090) è quello usato dallo scheduler.
+
+defaultRules:
+  create: true
+
+alertmanager:
+  enabled: false # Disattivato finché non configureremo il webhook Discord
+
+# ==========================================
+# 1. DISABILITAZIONE COMPONENTI NON NECESSARI
+# ==========================================
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+
+# ==========================================
+# 2. CONFIGURAZIONE GRAFANA (UI & Accesso)
+# ==========================================
+grafana:
+  adminPassword: "admin" # solo PoC: cambiare in ambienti reali
+  service:
+    type: NodePort
+    nodePort: 32002
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: "local-path"
+    size: 2Gi
+
+prometheus:
+  prometheusSpec:
+    # ==========================================
+    # 3. SELECTOR APERTI (importante per lo scheduler)
+    # ==========================================
+    # Di default Prometheus considera SOLO i ServiceMonitor/PodMonitor/Probe che
+    # hanno la label "release: <nome-release-helm>". Con "false" li considera tutti,
+    # in tutti i namespace: così il PodMonitor dei twin (namespace default) e il
+    # ServiceMonitor del blackbox vengono scrapati senza dover ricordare la label.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+
+    # --- OPZIONE NUCLEARE: ESECUZIONE COME ROOT (solo PoC) ---
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      runAsNonRoot: false
+      fsGroup: 0
+    # ----------------------------------------------
+
+    retention: 7d
+    retentionSize: "3000MB"
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "local-path"
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 4Gi
