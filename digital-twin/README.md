@@ -99,14 +99,16 @@ spec:
 * Un'istanza di Prometheus (o Prometheus Operator) configurata nel cluster.
 * Un broker MQTT (es. Mosquitto) raggiungibile internamente al cluster.
 
-### 2. Configurazione del Monitoraggio (`pod_monitor.yaml`)
+### 2. Configurazione del Monitoraggio (`twin-pod-monitor.yaml`)
 
 Per permettere a Prometheus di scoprire automaticamente i pod dei Digital Twin e raccogliere le metriche di entanglement (`pt_dt_delay`, `dt_comp_delay`, `entanglement`), applica la risorsa di monitoraggio nel cluster:
 
 ```bash
-kubectl apply -f pod_monitor.yaml
+kubectl apply -f twin-pod-monitor.yaml
 
 ```
+
+Nota: La stessa risorsa è presente in **/monitoring-stack**. Applicarla soltanto una volta dopo aver settato lo stack di monitoraggio e i twin.
 
 ### 3. Recupero Automatico dell'Immagine
 
